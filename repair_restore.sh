@@ -1,13 +1,13 @@
 #!/bin/bash
 
 #########################################################################################################
-# Title:  	Repair and restore Azure VM				                                                          #
-# Author: 	Marin Nedea and Ibrahim Abedalghafer									                                      #
-# Created: 	March 5th, 2020									                                                            #
-# Usage:  	Just run the script with sh (e.g. sh script.sh)                                							#
-# Requires:	AzCli 2.0 installed on the machine you're running this script on			                      #
-# 		      https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest	        #
-# 		      If enabled, you can run it through the bash Cloud Shell in your Azure Portal page.	        #
+# Title:  	Repair and restore Azure VM				                                #
+# Author: 	Marin Nedea and Ibrahim Abedalghafer							#
+# Created: 	March 5th, 2020									        #
+# Usage:  	Just run the script with sh (e.g. sh script.sh)                                		#
+# Requires:	AzCli 2.0 installed on the machine you're running this script on			#
+# 		https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest	#
+# 		If enabled, you can run it through the bash Cloud Shell in your Azure Portal page.	#
 #           vm-repair module for AzCLI 2.0:                                                             #
 #           - https://docs.microsoft.com/en-us/cli/azure/ext/vm-repair/vm/repair?view=azure-cli-latest  #
 #           - https://tinyurl.com/urfketn                                                               #
