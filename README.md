@@ -1,6 +1,16 @@
 # Repair-and-Restore-VM
 Azure CLI script to to create the repair environment for a VM and also to restore it post mitigation.
 
+## Requires:	
+AzCli 2.0 installed on the machine you're running this script on			
+*	https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest	
+
+If enabled, you can also run it through the bash Cloud Shell in your Azure Portal page.	
+
+## More on the vm-repair module for AzCLI 2.0:                                                             
+* https://docs.microsoft.com/en-us/cli/azure/ext/vm-repair/vm/repair?view=azure-cli-latest  
+* https://tinyurl.com/urfketn     
+
 
 ## Usage:
 
