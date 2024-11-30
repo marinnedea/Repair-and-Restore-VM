@@ -4,6 +4,7 @@
 # Title:  	Repair and restore Azure VM				                                #
 # Author: 	Marin Nedea and Ibrahim Abedalghafer							#
 # Created: 	March 5th, 2020									        #
+# Last Update:  Nov 30th, 2024							                       #
 # Usage:  	Just run the script with sh (e.g. sh script.sh)                                		#
 # Requires:	AzCli 2.0 installed on the machine you're running this script on			#
 # 		https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest	#
@@ -16,67 +17,103 @@
 #           az extension update -n vm-repair  <-- this will update the vm-repair module in AzCLI2.0     #
 #########################################################################################################
 
-echo "Do you wish to start rescue or restore a VM? [rescue/restore] [ENTER]:"
-read options
+set -euo pipefail
 
-if [ ! -z $options ]
-then
+# Default Configuration
+BACKUP_DIR="/var/backups/vms"
+LOG_FILE="/var/log/repair_restore.log"
+VM_CONFIG_FILE="/etc/vm_config"
+CURRENT_DATE=$(date +"%Y-%m-%d_%H-%M-%S")
 
-        if [ $options == "rescue" ]
-        then
-	
-		echo "Type the subscription ID that you want to use, followed by [ENTER]:"
-		read sID
+# Functions
+log() {
+    local message="$1"
+    echo "[$(date +"%Y-%m-%d %H:%M:%S")] $message" | tee -a "$LOG_FILE"
+}
 
-		echo "Type the affected VM resource group name [ENTER]:"
-		read rg_name
+check_root() {
+    if [[ $EUID -ne 0 ]]; then
+        log "Error: This script must be run as root."
+        exit 1
+    fi
+}
 
-		echo "Type the affected VM name [ENTER]:"
-		read vm_name
-		az account set --subscription $sID
-		
-                echo -e "$sID \n $rg_name \n $vm_name" > /tmp/rescue.data
-                touch /tmp/repair
-                touch /tmp/vmdetails
-                echo "" > /tmp/repair
-                az vm repair create -g $rg_name  -n  $vm_name --verbose  2>&1 | tee /tmp/repair
+backup_vm() {
+    local vm_name="$1"
+    local backup_path="${BACKUP_DIR}/${vm_name}_${CURRENT_DATE}.tar.gz"
 
-                count=0
-                cat /tmp/repair | grep "repair_vm_name\|repair_resource_group" | awk -F" " '{gsub(/"/, "",  $2); gsub(/,/, "",  $2);  print $2}' | while read line; do
-                        count=$(($count+1))
-                        if [ $count == 1 ]
-                        then
-                        rg_repair="$(echo $line | awk '{print $0}')"
-                        continue
-                        fi
-                        vm_repair="$(echo $line | awk '{print $0}')"
-                       vmip="$(az vm show -d -g $rg_repair -n $vm_repair --query publicIps -o tsv)"
-					   echo "Use the IP $vmip to connect to the VM!"
-					   
-                done
+    log "Starting backup for VM: $vm_name"
+    if tar -czf "$backup_path" "/var/lib/libvirt/images/${vm_name}.qcow2"; then
+        log "Backup for VM $vm_name completed: $backup_path"
+    else
+        log "Error: Backup for VM $vm_name failed."
+        exit 1
+    fi
+}
 
-        elif [ $options == "restore" ]
-        then
-				count=0
-                cat /tmp/rescue.data | while read line; do
-				count=$(($count+1))
-                if [ $count == 1 ]
-                then
-                sID="$(echo $line | awk '{print $0}')"
-				continue
-                fi
-				if [ $count == 2 ]
-                then		
-                rg_name="$(echo $line | awk '{print $0}')"
-				continue
-                fi
-                vm_name="$(echo $line | awk '{print $0}')"
+restore_vm() {
+    local vm_name="$1"
+    local backup_path="$2"
 
-                az account set --subscription $sID
-                az vm repair restore -g $rg_name  -n  $vm_name --verbose
-                done
+    log "Restoring VM $vm_name from backup: $backup_path"
+    if tar -xzf "$backup_path" -C "/var/lib/libvirt/images/"; then
+        log "VM $vm_name restored successfully."
+    else
+        log "Error: Restore failed for VM $vm_name."
+        exit 1
+    fi
+}
+
+repair_vm() {
+    local vm_name="$1"
+    local repair_script="/usr/local/bin/repair_vm.sh"
+
+    if [[ -f "$repair_script" && -x "$repair_script" ]]; then
+        log "Running repair script for VM: $vm_name"
+        if "$repair_script" "$vm_name"; then
+            log "VM $vm_name repaired successfully."
+        else
+            log "Error: Repair script failed for VM $vm_name."
+            exit 1
         fi
-else
-        echo "Please provide some options!"
-exit 0
+    else
+        log "Error: Repair script not found or not executable."
+        exit 1
+    fi
+}
+
+usage() {
+    echo "Usage: $0 {backup|restore|repair} VM_NAME [BACKUP_FILE]"
+    exit 1
+}
+
+# Main Script Logic
+check_root
+
+if [[ $# -lt 2 ]]; then
+    usage
 fi
+
+COMMAND="$1"
+VM_NAME="$2"
+BACKUP_FILE="${3:-}"
+
+case "$COMMAND" in
+    backup)
+        backup_vm "$VM_NAME"
+        ;;
+    restore)
+        if [[ -z "$BACKUP_FILE" ]]; then
+            log "Error: Backup file must be specified for restore."
+            usage
+        fi
+        restore_vm "$VM_NAME" "$BACKUP_FILE"
+        ;;
+    repair)
+        repair_vm "$VM_NAME"
+        ;;
+    *)
+        log "Error: Invalid command."
+        usage
+        ;;
+esac
